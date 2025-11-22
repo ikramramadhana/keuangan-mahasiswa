@@ -500,8 +500,8 @@ function renderTransactions(items) {
       </div>
       <div class="text-right flex-shrink-0 ml-2">
         <div class="text-base sm:text-xl font-bold ${tx.type === 'expense' ? 'text-red-600' : 'text-green-600'}">
-          ${tx.type === 'expense' ? '-' : '+'}${(tx.amount / 1000).toFixed(0)}k
-        </div>
+            ${tx.type === 'expense' ? '-' : ''}Rp ${formatRupiah(tx.amount)}
+          </div>
       </div>
     `;
     ul.appendChild(li);
