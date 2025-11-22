@@ -1,0 +1,13 @@
+# Vercel
+.vercel
+
+# Dependencies
+node_modules
+
+# Python
+__pycache__
+*.pyc
+
+# Temp files
+*.log
+.DS_Store

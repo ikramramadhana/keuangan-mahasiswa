@@ -1,0 +1,12 @@
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="url(#grad)"/>
+  <path d="M96 50 C75 50 58 67 58 88 L58 104 C58 125 75 142 96 142 C117 142 134 125 134 104 L134 88 C134 67 117 50 96 50 Z M96 62 C110 62 122 74 122 88 L122 104 C122 118 110 130 96 130 C82 130 70 118 70 104 L70 88 C70 74 82 62 96 62 Z M86 95 L106 95 L106 105 L86 105 Z" fill="white"/>
+  <circle cx="96" cy="75" r="8" fill="white"/>
+  <text x="96" y="165" font-family="Arial, sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="white">MONEY</text>
+</svg>

@@ -1,0 +1,13 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#grad512)"/>
+  <path d="M256 130 C200 130 155 175 155 231 L155 281 C155 337 200 382 256 382 C312 382 357 337 357 281 L357 231 C357 175 312 130 256 130 Z M256 170 C290 170 317 197 317 231 L317 281 C317 315 290 342 256 342 C222 342 195 315 195 281 L195 231 C195 197 222 170 256 170 Z M226 251 L286 251 L286 281 L226 281 Z" fill="white"/>
+  <circle cx="256" cy="200" r="20" fill="white"/>
+  <text x="256" y="450" font-family="Arial, sans-serif" font-size="60" font-weight="bold" text-anchor="middle" fill="white">MONEY</text>
+  <text x="256" y="490" font-family="Arial, sans-serif" font-size="40" font-weight="normal" text-anchor="middle" fill="white" opacity="0.8">MANAGER</text>
+</svg>
