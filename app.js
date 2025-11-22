@@ -193,6 +193,59 @@ document.getElementById("loginPassword").addEventListener("keypress", (e) => {
   if (e.key === "Enter") btnLogin.click();
 });
 
+// Format Rupiah input
+const amountInput = document.getElementById("amount");
+
+// Format angka ke Rupiah (10000 -> 10.000)
+function formatRupiah(angka) {
+  const numberString = angka.toString().replace(/[^,\d]/g, '');
+  const split = numberString.split(',');
+  const sisa = split[0].length % 3;
+  let rupiah = split[0].substr(0, sisa);
+  const ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+  if (ribuan) {
+    const separator = sisa ? '.' : '';
+    rupiah += separator + ribuan.join('.');
+  }
+
+  rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
+  return rupiah;
+}
+
+// Parse Rupiah ke angka (10.000 -> 10000)
+function parseRupiah(rupiah) {
+  return parseInt(rupiah.replace(/\./g, '')) || 0;
+}
+
+// Event saat user mengetik di input nominal
+amountInput.addEventListener('keyup', function(e) {
+  let value = this.value;
+  
+  // Hapus karakter selain angka
+  value = value.replace(/[^0-9]/g, '');
+  
+  // Format dengan pemisah ribuan
+  this.value = formatRupiah(value);
+});
+
+// Prevent non-numeric input
+amountInput.addEventListener('keypress', function(e) {
+  // Allow: backspace, delete, tab, escape, enter
+  if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+      // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+      (e.keyCode === 65 && e.ctrlKey === true) ||
+      (e.keyCode === 67 && e.ctrlKey === true) ||
+      (e.keyCode === 86 && e.ctrlKey === true) ||
+      (e.keyCode === 88 && e.ctrlKey === true)) {
+    return;
+  }
+  // Ensure that it is a number and stop the keypress
+  if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+    e.preventDefault();
+  }
+});
+
 // Auth state listener
 onAuthStateChanged(auth, (user) => {
   if (user) {
@@ -213,7 +266,8 @@ onAuthStateChanged(auth, (user) => {
 // Add transaction with better validation and feedback
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const type = document.getElementById("type").value;
-  const amount = Number(document.getElementById("amount").value);
+  const amountFormatted = document.getElementById("amount").value.trim();
+  const amount = parseRupiah(amountFormatted); // Parse format Rupiah ke angka
   const category = document.getElementById("category").value.trim();
   const note = document.getElementById("note").value.trim();
   const user = auth.currentUser;
