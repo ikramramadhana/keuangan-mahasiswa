@@ -215,7 +215,10 @@ function formatRupiah(angka) {
 
 // Parse Rupiah ke angka (10.000 -> 10000)
 function parseRupiah(rupiah) {
-  return parseInt(rupiah.replace(/\./g, '')) || 0;
+  if (!rupiah) return 0;
+  // Hapus semua titik, lalu parse ke integer
+  const cleanNumber = rupiah.toString().replace(/\./g, '').replace(/[^0-9]/g, '');
+  return parseInt(cleanNumber) || 0;
 }
 
 // Event saat user mengetik di input nominal
