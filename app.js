@@ -271,6 +271,12 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const type = document.getElementById("type").value;
   const amountFormatted = document.getElementById("amount").value.trim();
   const amount = parseRupiah(amountFormatted); // Parse format Rupiah ke angka
+  
+  console.log("=== DEBUG SAVE ===");
+  console.log("Input value:", amountFormatted);
+  console.log("Parsed amount:", amount);
+  console.log("Amount > 0?", amount > 0);
+  
   const category = document.getElementById("category").value.trim();
   const note = document.getElementById("note").value.trim();
   const user = auth.currentUser;
@@ -287,6 +293,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   
   if (!amount || amount <= 0) { 
     showToast("Masukkan nominal yang valid (lebih dari 0)!", "warning");
+    console.error("Validation failed - amount:", amount);
     return; 
   }
 
