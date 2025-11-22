@@ -196,8 +196,9 @@ document.getElementById("loginPassword").addEventListener("keypress", (e) => {
 // Format Rupiah input
 const amountInput = document.getElementById("amount");
 
-// Format angka ke Rupiah (10000 -> 10.000)
+// Format angka ke Rupiah Indonesia (10000 -> 10.000)
 function formatRupiah(angka) {
+  if (!angka) return '';
   const numberString = angka.toString().replace(/[^,\d]/g, '');
   const split = numberString.split(',');
   const sisa = split[0].length % 3;
@@ -213,38 +214,92 @@ function formatRupiah(angka) {
   return rupiah;
 }
 
-// Parse Rupiah ke angka (10.000 -> 10000)
-function parseRupiah(rupiah) {
-  if (!rupiah) return 0;
-  // Hapus semua titik, lalu parse ke integer
-  const cleanNumber = rupiah.toString().replace(/\./g, '').replace(/[^0-9]/g, '');
-  return parseInt(cleanNumber) || 0;
+// Parse Rupiah ke angka - support format Indo & International
+// Support: 1.000.000 atau 1,000,000 atau 1000000
+function parseRupiah(input) {
+  if (!input) return 0;
+  
+  const str = input.toString().trim();
+  
+  // Deteksi format berdasarkan karakter terakhir sebelum angka
+  // Format Indo: 1.000.000,50 (titik=ribuan, koma=desimal)
+  // Format International: 1,000,000.50 (koma=ribuan, titik=desimal)
+  
+  // Cek apakah ada koma DAN titik
+  const hasComma = str.includes(',');
+  const hasDot = str.includes('.');
+  
+  let cleanNumber;
+  
+  if (hasComma && hasDot) {
+    // Ada keduanya, deteksi format
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+    
+    if (lastComma > lastDot) {
+      // Format Indo: 1.000.000,50
+      cleanNumber = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Format International: 1,000,000.50
+      cleanNumber = str.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    // Hanya ada koma
+    // Bisa Indo (desimal) atau International (ribuan)
+    const commaPos = str.indexOf(',');
+    const afterComma = str.substring(commaPos + 1);
+    
+    if (afterComma.length <= 2) {
+      // Kemungkinan desimal: 1000,50
+      cleanNumber = str.replace(',', '.');
+    } else {
+      // Kemungkinan ribuan: 1,000,000
+      cleanNumber = str.replace(/,/g, '');
+    }
+  } else if (hasDot) {
+    // Hanya ada titik
+    // Bisa Indo (ribuan) atau International (desimal)
+    const dotPos = str.indexOf('.');
+    const afterDot = str.substring(dotPos + 1);
+    
+    if (afterDot.length <= 2) {
+      // Kemungkinan desimal: 1000.50
+      cleanNumber = str;
+    } else {
+      // Kemungkinan ribuan: 1.000.000
+      cleanNumber = str.replace(/\./g, '');
+    }
+  } else {
+    // Tidak ada pemisah
+    cleanNumber = str;
+  }
+  
+  // Parse ke float lalu bulatkan
+  const result = Math.round(parseFloat(cleanNumber) || 0);
+  return result;
 }
 
 // Event saat user mengetik di input nominal
 amountInput.addEventListener('keyup', function(e) {
   let value = this.value;
   
-  // Hapus karakter selain angka
-  value = value.replace(/[^0-9]/g, '');
+  // Hapus karakter selain angka, titik, dan koma
+  value = value.replace(/[^0-9.,]/g, '');
   
-  // Format dengan pemisah ribuan
-  this.value = formatRupiah(value);
+  // Auto-format hanya jika tidak ada titik/koma (pure number)
+  if (!value.includes('.') && !value.includes(',')) {
+    this.value = formatRupiah(value);
+  } else {
+    // Biarkan user ketik manual dengan titik/koma
+    this.value = value;
+  }
 });
 
-// Prevent non-numeric input
+// Prevent invalid characters
 amountInput.addEventListener('keypress', function(e) {
-  // Allow: backspace, delete, tab, escape, enter
-  if ([46, 8, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
-      // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-      (e.keyCode === 65 && e.ctrlKey === true) ||
-      (e.keyCode === 67 && e.ctrlKey === true) ||
-      (e.keyCode === 86 && e.ctrlKey === true) ||
-      (e.keyCode === 88 && e.ctrlKey === true)) {
-    return;
-  }
-  // Ensure that it is a number and stop the keypress
-  if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+  const char = String.fromCharCode(e.which);
+  // Allow: numbers, dot, comma, backspace, delete, arrow keys
+  if (!/[0-9.,]/.test(char) && ![8, 46, 37, 38, 39, 40].includes(e.keyCode)) {
     e.preventDefault();
   }
 });
