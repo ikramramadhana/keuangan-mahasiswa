@@ -282,24 +282,19 @@ function parseRupiah(input) {
 // Event saat user mengetik di input nominal
 amountInput.addEventListener('keyup', function(e) {
   let value = this.value;
-  
-  // Hapus karakter selain angka, titik, dan koma
-  value = value.replace(/[^0-9.,]/g, '');
-  
-  // Auto-format hanya jika tidak ada titik/koma (pure number)
-  if (!value.includes('.') && !value.includes(',')) {
-    this.value = formatRupiah(value);
-  } else {
-    // Biarkan user ketik manual dengan titik/koma
-    this.value = value;
-  }
+
+  // Hapus semua karakter selain angka
+  value = value.replace(/[^0-9]/g, '');
+
+  // Format selalu ke Rupiah Indonesia (ribuan dengan titik)
+  this.value = formatRupiah(value);
 });
 
-// Prevent invalid characters
+// Prevent invalid characters (hanya angka)
 amountInput.addEventListener('keypress', function(e) {
   const char = String.fromCharCode(e.which);
-  // Allow: numbers, dot, comma, backspace, delete, arrow keys
-  if (!/[0-9.,]/.test(char) && ![8, 46, 37, 38, 39, 40].includes(e.keyCode)) {
+  // Hanya izinkan angka 0-9
+  if (!/[0-9]/.test(char)) {
     e.preventDefault();
   }
 });
