@@ -393,6 +393,17 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   }
 });
 
+// Event saat user mengetik di input nominal
+amountInput.addEventListener('keyup', function(e) {
+  let value = this.value;
+
+  // Hapus semua karakter kecuali angka
+  value = value.replace(/[^0-9]/g, '');
+
+  // Format selalu ke gaya Indonesia (10.000, 1.000.000)
+  this.value = formatRupiah(value);
+});
+
 let unsubscribe = null;
 let chart = null;
 
