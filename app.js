@@ -74,14 +74,64 @@ document.head.appendChild(style);
 
 const authSection = document.getElementById("auth-section");
 const dashboard = document.getElementById("dashboard");
+const isAuthPage = Boolean(authSection);
+const isDashboardPage = Boolean(dashboard);
+const loginPanel = document.getElementById("loginPanel");
+const registerPanel = document.getElementById("registerPanel");
+const showLogin = document.getElementById("showLogin");
+const showRegister = document.getElementById("showRegister");
+const jumpToRegister = document.getElementById("jumpToRegister");
+const jumpToLogin = document.getElementById("jumpToLogin");
+const authModeNote = document.getElementById("authModeNote");
 
 const btnRegister = document.getElementById("btnRegister");
 const btnLogin = document.getElementById("btnLogin");
 const btnLogout = document.getElementById("btnLogout");
 const userEmail = document.getElementById("userEmail");
 
+function setAuthMode(mode) {
+  if (!isAuthPage) return;
+
+  const isLogin = mode === "login";
+  const activePanel = isLogin ? loginPanel : registerPanel;
+
+  loginPanel.classList.toggle("auth-view-hidden", !isLogin);
+  registerPanel.classList.toggle("auth-view-hidden", isLogin);
+
+  activePanel.classList.remove("panel-pop");
+  requestAnimationFrame(() => {
+    activePanel.classList.add("panel-pop");
+  });
+
+  authModeNote.textContent = isLogin
+    ? "Masuk untuk lanjut ke dashboard keuangan kamu."
+    : "Buat akun baru dulu, lalu kamu bisa masuk ke dashboard.";
+
+  showLogin.classList.toggle("bg-white", isLogin);
+  showLogin.classList.toggle("text-blue-600", isLogin);
+  showLogin.classList.toggle("shadow-sm", isLogin);
+  showLogin.classList.toggle("switch-btn-inactive", !isLogin);
+  showLogin.classList.toggle("ring-1", isLogin);
+  showLogin.classList.toggle("ring-blue-200", isLogin);
+
+  showRegister.classList.toggle("bg-white", !isLogin);
+  showRegister.classList.toggle("text-amber-500", !isLogin);
+  showRegister.classList.toggle("shadow-sm", !isLogin);
+  showRegister.classList.toggle("switch-btn-inactive", isLogin);
+  showRegister.classList.toggle("ring-1", !isLogin);
+  showRegister.classList.toggle("ring-green-200", !isLogin);
+}
+
+if (isAuthPage && showLogin && showRegister && jumpToRegister && jumpToLogin) {
+  showLogin.onclick = () => setAuthMode("login");
+  showRegister.onclick = () => setAuthMode("register");
+  jumpToRegister.onclick = () => setAuthMode("register");
+  jumpToLogin.onclick = () => setAuthMode("login");
+  setAuthMode("login");
+}
+
 // Register function with validation
-btnRegister.onclick = async () => {
+if (btnRegister) btnRegister.onclick = async () => {
   const email = document.getElementById("regEmail").value.trim();
   const pass = document.getElementById("regPassword").value;
   
@@ -123,7 +173,7 @@ btnRegister.onclick = async () => {
 };
 
 // Login function with validation
-btnLogin.onclick = async () => {
+if (btnLogin) btnLogin.onclick = async () => {
   const email = document.getElementById("loginEmail").value.trim();
   const pass = document.getElementById("loginPassword").value;
   
@@ -167,31 +217,37 @@ btnLogin.onclick = async () => {
 };
 
 // Logout function
-btnLogout.onclick = async () => {
-  try {
-    await signOut(auth);
-    showToast("Logout berhasil!", "info");
-  } catch (e) {
-    console.error("Logout error:", e);
-    showToast("Logout gagal!", "error");
-  }
-};
+if (btnLogout) {
+  btnLogout.onclick = async () => {
+    try {
+      await signOut(auth);
+      showToast("Logout berhasil!", "info");
+    } catch (e) {
+      console.error("Logout error:", e);
+      showToast("Logout gagal!", "error");
+    }
+  };
+}
 
 // Enter key support for register
-document.getElementById("regEmail").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") document.getElementById("regPassword").focus();
-});
-document.getElementById("regPassword").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") btnRegister.click();
-});
+if (isAuthPage) {
+  document.getElementById("regEmail").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") document.getElementById("regPassword").focus();
+  });
+  document.getElementById("regPassword").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") btnRegister.click();
+  });
+}
 
 // Enter key support for login
-document.getElementById("loginEmail").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") document.getElementById("loginPassword").focus();
-});
-document.getElementById("loginPassword").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") btnLogin.click();
-});
+if (isAuthPage) {
+  document.getElementById("loginEmail").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") document.getElementById("loginPassword").focus();
+  });
+  document.getElementById("loginPassword").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") btnLogin.click();
+  });
+}
 
 // Format Rupiah input
 const amountInput = document.getElementById("amount");
@@ -279,45 +335,59 @@ function parseRupiah(input) {
   return result;
 }
 
-// Event saat user mengetik di input nominal
-amountInput.addEventListener('keyup', function(e) {
-  let value = this.value;
+if (amountInput) {
+  // Event saat user mengetik di input nominal
+  amountInput.addEventListener('keyup', function(e) {
+    let value = this.value;
 
-  // Hapus semua karakter selain angka
-  value = value.replace(/[^0-9]/g, '');
+    // Hapus semua karakter selain angka
+    value = value.replace(/[^0-9]/g, '');
 
-  // Format selalu ke Rupiah Indonesia (ribuan dengan titik)
-  this.value = formatRupiah(value);
-});
+    // Format selalu ke Rupiah Indonesia (ribuan dengan titik)
+    this.value = formatRupiah(value);
+  });
 
-// Prevent invalid characters (hanya angka)
-amountInput.addEventListener('keypress', function(e) {
-  const char = String.fromCharCode(e.which);
-  // Hanya izinkan angka 0-9
-  if (!/[0-9]/.test(char)) {
-    e.preventDefault();
-  }
-});
+  // Prevent invalid characters (hanya angka)
+  amountInput.addEventListener('keypress', function(e) {
+    const char = String.fromCharCode(e.which);
+    // Hanya izinkan angka 0-9
+    if (!/[0-9]/.test(char)) {
+      e.preventDefault();
+    }
+  });
+}
 
 // Auth state listener
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log("User logged in:", user.email);
-    authSection.classList.add("hidden");
-    dashboard.classList.remove("hidden");
-    userEmail.innerText = user.email;
-    startRealtime(user.uid);
+    if (isAuthPage && !isDashboardPage) {
+      window.location.replace("./dashboard.html");
+      return;
+    }
+
+    if (isDashboardPage) {
+      dashboard.classList.remove("hidden");
+      if (userEmail) userEmail.innerText = user.email;
+      startRealtime(user.uid);
+    }
   } else {
     console.log("User logged out");
-    authSection.classList.remove("hidden");
-    dashboard.classList.add("hidden");
-    userEmail.innerText = "";
-    stopRealtime();
+    if (isDashboardPage) {
+      window.location.replace("./index.html");
+      return;
+    }
+
+    if (isAuthPage) {
+      authSection.classList.remove("hidden");
+      if (userEmail) userEmail.innerText = "";
+    }
   }
 });
 
 // Add transaction with better validation and feedback
-document.getElementById("saveBtn").addEventListener("click", async () => {
+const saveBtnElement = document.getElementById("saveBtn");
+if (saveBtnElement) saveBtnElement.addEventListener("click", async () => {
   const type = document.getElementById("type").value;
   const amountFormatted = document.getElementById("amount").value.trim();
   const amount = parseRupiah(amountFormatted); // Parse format Rupiah ke angka
@@ -394,15 +464,17 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 });
 
 // Event saat user mengetik di input nominal
-amountInput.addEventListener('keyup', function(e) {
-  let value = this.value;
+if (amountInput) {
+  amountInput.addEventListener('keyup', function(e) {
+    let value = this.value;
 
-  // Hapus semua karakter kecuali angka
-  value = value.replace(/[^0-9]/g, '');
+    // Hapus semua karakter kecuali angka
+    value = value.replace(/[^0-9]/g, '');
 
-  // Format selalu ke gaya Indonesia (10.000, 1.000.000)
-  this.value = formatRupiah(value);
-});
+    // Format selalu ke gaya Indonesia (10.000, 1.000.000)
+    this.value = formatRupiah(value);
+  });
+}
 
 let unsubscribe = null;
 let chart = null;
@@ -590,6 +662,7 @@ function renderChartMonthly(items) {
           labels: {
             usePointStyle: true,
             padding: 15,
+            color: '#dfe8ff',
             font: {
               size: 12,
               weight: '600'
@@ -623,9 +696,10 @@ function renderChartMonthly(items) {
         y: {
           beginAtZero: true,
           grid: {
-            color: 'rgba(0, 0, 0, 0.05)'
+            color: 'rgba(223, 232, 255, 0.12)'
           },
           ticks: {
+            color: '#dfe8ff',
             callback: function(value) {
               return 'Rp ' + (value / 1000) + 'k';
             }
@@ -634,6 +708,9 @@ function renderChartMonthly(items) {
         x: {
           grid: {
             display: false
+          },
+          ticks: {
+            color: '#dfe8ff'
           }
         }
       }

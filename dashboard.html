@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Dashboard pengelola keuangan mahasiswa" />
+  <title>Dashboard - Keuangan Mahasiswa</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --lux-navy: #0b1120;
+      --lux-panel: rgba(11, 17, 32, 0.58);
+      --lux-stroke: rgba(255, 255, 255, 0.16);
+      --lux-soft: rgba(229, 236, 255, 0.8);
+      --lux-gold: #d4af37;
+    }
+
+    * {
+      font-family: 'Manrope', sans-serif;
+    }
+
+    body {
+      touch-action: pan-y;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .gradient-bg {
+      position: relative;
+      background:
+        radial-gradient(circle at 16% 12%, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0) 38%),
+        radial-gradient(circle at 84% 8%, rgba(99, 124, 255, 0.3) 0%, rgba(99, 124, 255, 0) 42%),
+        linear-gradient(140deg, #0b1120 0%, #13203e 56%, #1a2950 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .gradient-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 34px 34px;
+      pointer-events: none;
+    }
+
+    .ambient {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(40px);
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 0;
+      animation: ambientDrift 14s ease-in-out infinite alternate;
+    }
+
+    .ambient-a {
+      width: 340px;
+      height: 340px;
+      top: -110px;
+      right: -70px;
+      background: rgba(212, 175, 55, 0.35);
+    }
+
+    .ambient-b {
+      width: 360px;
+      height: 360px;
+      bottom: -120px;
+      left: -90px;
+      background: rgba(76, 126, 255, 0.4);
+      animation-direction: alternate-reverse;
+    }
+
+    .dash-shell {
+      position: relative;
+      z-index: 1;
+      background: linear-gradient(155deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.035) 100%);
+      border: 1px solid var(--lux-stroke);
+      box-shadow: 0 30px 80px rgba(2, 5, 16, 0.48);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      animation: cinematicIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .dash-shell::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(120deg, rgba(212, 175, 55, 0.48), rgba(255, 255, 255, 0.08), rgba(76, 126, 255, 0.48));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .section-reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: revealUp 0.65s ease forwards;
+      animation-delay: var(--d, 0s);
+    }
+
+    .top-title {
+      font-family: 'Playfair Display', serif;
+      color: #f7f9ff;
+      letter-spacing: 0.3px;
+    }
+
+    .top-copy {
+      color: rgba(229, 236, 255, 0.74);
+    }
+
+    .subtle-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(241, 247, 255, 0.9);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .insight-bar {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(230, 238, 255, 0.86);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .stats-caption {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .user-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(229, 236, 255, 0.92);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .logout-btn {
+      background: linear-gradient(95deg, #f05252 0%, #dc2626 100%);
+      box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35);
+    }
+
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-card {
+      background: var(--lux-panel);
+      border: 1px solid var(--lux-stroke);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .heading-light {
+      color: #f4f8ff;
+    }
+
+    .label-soft {
+      color: rgba(229, 236, 255, 0.78);
+    }
+
+    .field-surface {
+      border: 1px solid rgba(229, 236, 255, 0.2);
+      background: rgba(255, 255, 255, 0.06);
+      color: #f8fbff;
+    }
+
+    .field-surface::placeholder {
+      color: rgba(229, 236, 255, 0.52);
+    }
+
+    .field-surface option {
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    .field-icon {
+      color: rgba(229, 236, 255, 0.54);
+    }
+
+    .input-focus {
+      transition: all 0.3s ease;
+    }
+
+    .input-focus:focus {
+      outline: none;
+      border-color: rgba(212, 175, 55, 0.85);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2), 0 8px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .btn-animate {
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-animate:active {
+      transform: scale(0.96);
+    }
+
+    .save-btn {
+      background: linear-gradient(95deg, #6e8fff 0%, #4f6dff 58%, #3b57e8 100%);
+      box-shadow: 0 12px 26px rgba(79, 109, 255, 0.36);
+    }
+
+    .stats-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+    }
+
+    .stats-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
+    }
+
+    .chart-wrap {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .history-wrap {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    #txList li {
+      border-color: rgba(255, 255, 255, 0.2) !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+
+    #txList .text-gray-800,
+    #txList .text-gray-600,
+    #txList .text-gray-400 {
+      color: rgba(240, 245, 255, 0.92) !important;
+    }
+
+    #txList .text-gray-600 {
+      color: rgba(221, 231, 255, 0.78) !important;
+    }
+
+    #txList .text-gray-400 {
+      color: rgba(189, 203, 238, 0.72) !important;
+    }
+
+    @keyframes cinematicIn {
+      from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.99);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes revealUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes ambientDrift {
+      from {
+        transform: translate(0, 0);
+      }
+      to {
+        transform: translate(14px, -12px);
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(229, 236, 255, 0.42);
+      border-radius: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-hidden {
+        display: none !important;
+      }
+    }
+
+    @supports (padding: max(0px)) {
+      body {
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+      }
+    }
+
+    .mobile-bottom-space {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="gradient-bg flex items-start justify-center p-2 sm:p-4">
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <div class="w-full max-w-6xl rounded-2xl overflow-hidden mx-auto dash-shell">
+    <div id="dashboard" class="p-4 sm:p-8 mobile-bottom-space">
+      <div class="flex flex-col gap-3 mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-white/20 section-reveal" style="--d:0.06s;">
+        <div>
+          <span class="subtle-badge mb-3"><i class="fas fa-gem text-amber-300"></i>Premium Workspace</span>
+          <h1 class="text-3xl sm:text-4xl font-bold top-title">
+            <i class="fas fa-chart-line mr-2 text-amber-300"></i>Dashboard
+          </h1>
+          <p class="text-xs sm:text-sm top-copy mt-1">Pantau keuangan Anda secara real-time</p>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg flex-1 min-w-0 user-chip">
+            <i class="fas fa-user-circle text-amber-300 mr-2 text-sm sm:text-base flex-shrink-0"></i>
+            <span id="userEmail" class="text-xs sm:text-sm font-medium truncate"></span>
+          </div>
+          <button id="btnLogout" class="text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg font-semibold btn-animate logout-btn text-xs sm:text-sm flex-shrink-0">
+            <i class="fas fa-sign-out-alt sm:mr-2"></i><span class="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8 section-reveal" style="--d:0.14s;">
+        <div class="stats-card bg-gradient-to-br from-green-500 to-emerald-600 p-4 sm:p-6 rounded-xl text-white card-hover">
+          <div class="flex items-center justify-between mb-2">
+            <div class="stats-caption">Pemasukan</div>
+            <div class="p-2 sm:p-3 bg-white/20 rounded-lg">
+              <i class="fas fa-arrow-down text-lg sm:text-2xl"></i>
+            </div>
+          </div>
+          <div id="income" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
+          <div class="text-xs sm:text-sm opacity-80">
+            <i class="fas fa-chart-line mr-1"></i>Bulan ini
+          </div>
+        </div>
+
+        <div class="stats-card bg-gradient-to-br from-red-500 to-pink-600 p-4 sm:p-6 rounded-xl text-white card-hover">
+          <div class="flex items-center justify-between mb-2">
+            <div class="stats-caption">Pengeluaran</div>
+            <div class="p-2 sm:p-3 bg-white/20 rounded-lg">
+              <i class="fas fa-arrow-up text-lg sm:text-2xl"></i>
+            </div>
+          </div>
+          <div id="expense" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
+          <div class="text-xs sm:text-sm opacity-80">
+            <i class="fas fa-shopping-cart mr-1"></i>Bulan ini
+          </div>
+        </div>
+
+        <div class="stats-card bg-gradient-to-br from-indigo-500 to-purple-600 p-4 sm:p-6 rounded-xl text-white card-hover">
+          <div class="flex items-center justify-between mb-2">
+            <div class="stats-caption">Saldo</div>
+            <div class="p-2 sm:p-3 bg-white/20 rounded-lg">
+              <i class="fas fa-wallet text-lg sm:text-2xl"></i>
+            </div>
+          </div>
+          <div id="balance" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
+          <div class="text-xs sm:text-sm opacity-80">
+            <i class="fas fa-coins mr-1"></i>Sisa keuangan
+          </div>
+        </div>
+      </div>
+
+      <div class="insight-bar rounded-xl px-3 sm:px-4 py-2.5 mb-4 sm:mb-8 section-reveal" style="--d:0.18s;">
+        <div class="text-xs sm:text-sm font-semibold">
+          <i class="fas fa-sparkles text-amber-300 mr-2"></i>
+          Tip: cek kartu saldo tiap hari untuk jaga pengeluaran tetap aman.
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-8 section-reveal" style="--d:0.22s;">
+        <div class="glass-card p-4 sm:p-6 rounded-xl card-hover">
+          <div class="flex items-center mb-4 sm:mb-5">
+            <div class="p-2 bg-amber-300/20 rounded-lg mr-2 sm:mr-3">
+              <i class="fas fa-plus-circle text-amber-300 text-lg sm:text-xl"></i>
+            </div>
+            <h2 class="text-lg sm:text-xl font-bold heading-light">Tambah Transaksi</h2>
+          </div>
+
+          <div class="space-y-3 sm:space-y-4">
+            <div class="relative">
+              <label class="text-xs sm:text-sm font-medium label-soft mb-1 block">Tipe Transaksi</label>
+              <div class="relative">
+                <i class="fas fa-exchange-alt absolute left-3 top-3 sm:top-3.5 text-sm field-icon"></i>
+                <select id="type" class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg input-focus appearance-none field-surface bg-transparent">
+                  <option value="income">Pemasukan</option>
+                  <option value="expense">Pengeluaran</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="relative">
+              <label class="text-xs sm:text-sm font-medium label-soft mb-1 block">Nominal (Rp)</label>
+              <div class="relative">
+                <i class="fas fa-money-bill-wave absolute left-3 top-3 sm:top-3.5 text-sm field-icon"></i>
+                <input id="amount" type="text" placeholder="10.000 atau 10,000" inputmode="numeric"
+                  class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg input-focus field-surface" />
+              </div>
+              <p class="text-xs mt-1 label-soft">Format: 1.000.000 atau 1,000,000</p>
+            </div>
+
+            <div class="relative">
+              <label class="text-xs sm:text-sm font-medium label-soft mb-1 block">Kategori</label>
+              <div class="relative">
+                <i class="fas fa-tag absolute left-3 top-3 sm:top-3.5 text-sm field-icon"></i>
+                <input id="category" placeholder="Contoh: Makan, Transport"
+                  class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg input-focus field-surface" />
+              </div>
+            </div>
+
+            <div class="relative">
+              <label class="text-xs sm:text-sm font-medium label-soft mb-1 block">Catatan (Opsional)</label>
+              <div class="relative">
+                <i class="fas fa-sticky-note absolute left-3 top-3 sm:top-3.5 text-sm field-icon"></i>
+                <input id="note" placeholder="Tambahkan catatan..."
+                  class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg input-focus field-surface" />
+              </div>
+            </div>
+
+            <button id="saveBtn" class="w-full text-white py-2.5 sm:py-3 rounded-lg font-semibold btn-animate save-btn mt-2 text-sm sm:text-base">
+              <i class="fas fa-save mr-2"></i>Simpan Transaksi
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-6 rounded-xl card-hover">
+          <div class="flex items-center mb-4 sm:mb-5">
+            <div class="p-2 bg-blue-300/20 rounded-lg mr-2 sm:mr-3">
+              <i class="fas fa-chart-bar text-blue-200 text-lg sm:text-xl"></i>
+            </div>
+            <div>
+              <h2 class="text-lg sm:text-xl font-bold heading-light">Grafik Bulanan</h2>
+              <p class="text-xs label-soft">Perbandingan pemasukan dan pengeluaran 6 bulan terakhir</p>
+            </div>
+          </div>
+          <div class="chart-wrap p-2 sm:p-4 rounded-lg">
+            <canvas id="chartMonthly" width="400" height="250"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 sm:p-6 rounded-xl card-hover section-reveal" style="--d:0.3s;">
+        <div class="flex items-center justify-between mb-4 sm:mb-5">
+          <div class="flex items-center">
+            <div class="p-2 bg-sky-300/20 rounded-lg mr-2 sm:mr-3">
+              <i class="fas fa-history text-sky-200 text-lg sm:text-xl"></i>
+            </div>
+            <h2 class="text-lg sm:text-xl font-bold heading-light">Riwayat</h2>
+          </div>
+          <span class="text-xs sm:text-sm label-soft">50 terakhir</span>
+        </div>
+        <div class="history-wrap rounded-lg p-2 sm:p-4">
+          <ul id="txList" class="space-y-2 sm:space-y-3 max-h-96 overflow-auto"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+  <script type="module" src="./firebase.js"></script>
+  <script type="module" src="./app.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => console.log('SW registered:', registration))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
