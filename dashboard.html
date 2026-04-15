@@ -11,342 +11,11 @@
 
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script> 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-
-  <style>
-    :root {
-      --lux-navy: #0b1120;
-      --lux-panel: rgba(11, 17, 32, 0.58);
-      --lux-stroke: rgba(255, 255, 255, 0.16);
-      --lux-soft: rgba(229, 236, 255, 0.8);
-      --lux-gold: #d4af37;
-    }
-
-    * {
-      font-family: 'Manrope', sans-serif;
-    }
-
-    body {
-      touch-action: pan-y;
-      -webkit-tap-highlight-color: transparent;
-      min-height: 100vh;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
-    .gradient-bg {
-      position: relative;
-      background:
-        radial-gradient(circle at 16% 12%, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0) 38%),
-        radial-gradient(circle at 84% 8%, rgba(99, 124, 255, 0.3) 0%, rgba(99, 124, 255, 0) 42%),
-        linear-gradient(140deg, #0b1120 0%, #13203e 56%, #1a2950 100%);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    .gradient-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-      background-size: 34px 34px;
-      pointer-events: none;
-    }
-
-    .ambient {
-      position: absolute;
-      border-radius: 999px;
-      filter: blur(40px);
-      opacity: 0.5;
-      pointer-events: none;
-      z-index: 0;
-      animation: ambientDrift 14s ease-in-out infinite alternate;
-    }
-
-    .ambient-a {
-      width: 340px;
-      height: 340px;
-      top: -110px;
-      right: -70px;
-      background: rgba(212, 175, 55, 0.35);
-    }
-
-    .ambient-b {
-      width: 360px;
-      height: 360px;
-      bottom: -120px;
-      left: -90px;
-      background: rgba(76, 126, 255, 0.4);
-      animation-direction: alternate-reverse;
-    }
-
-    .dash-shell {
-      position: relative;
-      z-index: 1;
-      background: linear-gradient(155deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.035) 100%);
-      border: 1px solid var(--lux-stroke);
-      box-shadow: 0 30px 80px rgba(2, 5, 16, 0.48);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      animation: cinematicIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    .dash-shell::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      padding: 1px;
-      background: linear-gradient(120deg, rgba(212, 175, 55, 0.48), rgba(255, 255, 255, 0.08), rgba(76, 126, 255, 0.48));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-
-    .section-reveal {
-      opacity: 0;
-      transform: translateY(16px);
-      animation: revealUp 0.65s ease forwards;
-      animation-delay: var(--d, 0s);
-    }
-
-    .top-title {
-      font-family: 'Playfair Display', serif;
-      color: #f7f9ff;
-      letter-spacing: 0.3px;
-    }
-
-    .top-copy {
-      color: rgba(229, 236, 255, 0.74);
-    }
-
-    .subtle-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: rgba(241, 247, 255, 0.9);
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-
-    .insight-bar {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      color: rgba(230, 238, 255, 0.86);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-
-    .stats-caption {
-      color: rgba(255, 255, 255, 0.78);
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    .user-chip {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      color: rgba(229, 236, 255, 0.92);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-
-    .logout-btn {
-      background: linear-gradient(95deg, #f05252 0%, #dc2626 100%);
-      box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35);
-    }
-
-    .card-hover {
-      transition: all 0.3s ease;
-    }
-
-    .card-hover:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.5);
-    }
-
-    .glass-card {
-      background: var(--lux-panel);
-      border: 1px solid var(--lux-stroke);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-
-    .heading-light {
-      color: #f4f8ff;
-    }
-
-    .label-soft {
-      color: rgba(229, 236, 255, 0.78);
-    }
-
-    .field-surface {
-      border: 1px solid rgba(229, 236, 255, 0.2);
-      background: rgba(255, 255, 255, 0.06);
-      color: #f8fbff;
-    }
-
-    .field-surface::placeholder {
-      color: rgba(229, 236, 255, 0.52);
-    }
-
-    .field-surface option {
-      color: #0f172a;
-      background: #f8fafc;
-    }
-
-    .field-icon {
-      color: rgba(229, 236, 255, 0.54);
-    }
-
-    .input-focus {
-      transition: all 0.3s ease;
-    }
-
-    .input-focus:focus {
-      outline: none;
-      border-color: rgba(212, 175, 55, 0.85);
-      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2), 0 8px 18px rgba(0, 0, 0, 0.25);
-    }
-
-    .btn-animate {
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn-animate:active {
-      transform: scale(0.96);
-    }
-
-    .save-btn {
-      background: linear-gradient(95deg, #6e8fff 0%, #4f6dff 58%, #3b57e8 100%);
-      box-shadow: 0 12px 26px rgba(79, 109, 255, 0.36);
-    }
-
-    .stats-card {
-      position: relative;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
-    }
-
-    .stats-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
-    }
-
-    .chart-wrap {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-    }
-
-    .history-wrap {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-    }
-
-    #txList li {
-      border-color: rgba(255, 255, 255, 0.2) !important;
-      background: rgba(255, 255, 255, 0.06) !important;
-    }
-
-    #txList .text-gray-800,
-    #txList .text-gray-600,
-    #txList .text-gray-400 {
-      color: rgba(240, 245, 255, 0.92) !important;
-    }
-
-    #txList .text-gray-600 {
-      color: rgba(221, 231, 255, 0.78) !important;
-    }
-
-    #txList .text-gray-400 {
-      color: rgba(189, 203, 238, 0.72) !important;
-    }
-
-    @keyframes cinematicIn {
-      from {
-        opacity: 0;
-        transform: translateY(24px) scale(0.99);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    @keyframes revealUp {
-      from {
-        opacity: 0;
-        transform: translateY(16px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes ambientDrift {
-      from {
-        transform: translate(0, 0);
-      }
-      to {
-        transform: translate(14px, -12px);
-      }
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgba(229, 236, 255, 0.42);
-      border-radius: 10px;
-    }
-
-    @media (max-width: 768px) {
-      .mobile-hidden {
-        display: none !important;
-      }
-    }
-
-    @supports (padding: max(0px)) {
-      body {
-        padding-left: max(0px, env(safe-area-inset-left));
-        padding-right: max(0px, env(safe-area-inset-right));
-      }
-    }
-
-    .mobile-bottom-space {
-      padding-bottom: max(1rem, env(safe-area-inset-bottom));
-    }
-  </style>
+  <link rel="stylesheet" href="styles/dashboard.css" />
 </head>
 <body class="gradient-bg flex items-start justify-center p-2 sm:p-4">
   <div class="ambient ambient-a"></div>
@@ -414,10 +83,53 @@
         </div>
       </div>
 
-      <div class="insight-bar rounded-xl px-3 sm:px-4 py-2.5 mb-4 sm:mb-8 section-reveal" style="--d:0.18s;">
-        <div class="text-xs sm:text-sm font-semibold">
+      <div id="insightBar" class="insight-bar rounded-xl px-3 sm:px-4 py-3 mb-4 sm:mb-8 section-reveal" style="--d:0.18s;">
+        <div id="insightText" class="text-xs sm:text-sm font-semibold">
           <i class="fas fa-sparkles text-amber-300 mr-2"></i>
-          Tip: cek kartu saldo tiap hari untuk jaga pengeluaran tetap aman.
+          Memuat insight keuangan kamu...
+        </div>
+        <div id="insightMeta" class="insight-meta mt-2"></div>
+      </div>
+
+      <div class="glass-card p-4 sm:p-6 rounded-xl card-hover mb-4 sm:mb-8 section-reveal" style="--d:0.2s;">
+        <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
+          <div class="flex items-center">
+            <div class="p-2 bg-emerald-300/20 rounded-lg mr-2 sm:mr-3">
+              <i class="fas fa-bullseye text-emerald-200 text-lg sm:text-xl"></i>
+            </div>
+            <div>
+              <h2 class="text-lg sm:text-xl font-bold heading-light">Budget Bulanan</h2>
+              <p class="text-xs label-soft">Atur batas pengeluaran agar saldo tetap aman</p>
+            </div>
+          </div>
+          <span id="budgetStatus" class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-500/30 text-slate-100">
+            Belum diatur
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div class="relative">
+            <i class="fas fa-wallet absolute left-3 top-3 sm:top-3.5 text-sm field-icon"></i>
+            <input id="monthlyBudget" type="text" inputmode="numeric" placeholder="Masukkan budget, contoh: 2.500.000"
+              class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg input-focus field-surface" />
+          </div>
+          <button id="budgetSaveBtn" class="text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg font-semibold btn-animate save-btn text-sm sm:text-base">
+            <i class="fas fa-check-circle mr-2"></i>Simpan Budget
+          </button>
+          <button id="budgetResetBtn" class="px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg font-semibold btn-animate text-sm sm:text-base border border-white/20 text-slate-100 bg-white/5 hover:bg-white/10">
+            <i class="fas fa-rotate-left mr-2"></i>Reset
+          </button>
+        </div>
+
+        <div class="mb-2">
+          <div class="flex justify-between items-center text-xs sm:text-sm mb-1">
+            <span id="budgetProgressLabel" class="label-soft">Belum ada budget bulan ini.</span>
+            <span id="budgetProgressPercent" class="label-soft font-semibold">0%</span>
+          </div>
+          <div class="h-2.5 rounded-full bg-white/10 overflow-hidden border border-white/10">
+            <div id="budgetProgressFill" class="h-full rounded-full transition-all duration-500" style="width:0%; background: linear-gradient(90deg, #22c55e, #10b981);"></div>
+          </div>
+          <p id="budgetDailyHint" class="text-xs label-soft mt-2">Set budget dulu untuk lihat estimasi jatah harian.</p>
         </div>
       </div>
 
@@ -470,7 +182,7 @@
               </div>
             </div>
 
-            <button id="saveBtn" class="w-full text-white py-2.5 sm:py-3 rounded-lg font-semibold btn-animate save-btn mt-2 text-sm sm:text-base">
+            <button id="saveBtn" class="w-full text-white py-2.5 sm:py-3 rounded-lg font-semibold btn-animate save-btn mt-2 text-sm sm:text-base mobile-sticky-cta">
               <i class="fas fa-save mr-2"></i>Simpan Transaksi
             </button>
           </div>
@@ -486,7 +198,12 @@
               <p class="text-xs label-soft">Perbandingan pemasukan dan pengeluaran 6 bulan terakhir</p>
             </div>
           </div>
-          <div class="chart-wrap p-2 sm:p-4 rounded-lg">
+          <div class="chart-wrap p-2 sm:p-4 rounded-lg relative overflow-hidden">
+            <div id="chartState" class="chart-state">
+              <div class="skeleton shimmer w-40 h-3 rounded-full mb-3"></div>
+              <div class="skeleton shimmer w-full h-40 rounded-lg"></div>
+              <p class="chart-state-copy">Menyiapkan grafik bulanan...</p>
+            </div>
             <canvas id="chartMonthly" width="400" height="250"></canvas>
           </div>
         </div>
@@ -515,6 +232,15 @@
   <script type="module" src="./app.js"></script>
 
   <script>
+    let scrollTicking;
+    window.addEventListener('scroll', () => {
+      document.body.classList.add('is-scrolling');
+      clearTimeout(scrollTicking);
+      scrollTicking = setTimeout(() => {
+        document.body.classList.remove('is-scrolling');
+      }, 120);
+    }, { passive: true });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js')

@@ -10,10 +10,12 @@ import {
 import {
   collection,
   addDoc,
+  doc,
   query,
   where,
   orderBy,
   getDocs,
+  setDoc,
   serverTimestamp,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
@@ -88,6 +90,279 @@ const btnRegister = document.getElementById("btnRegister");
 const btnLogin = document.getElementById("btnLogin");
 const btnLogout = document.getElementById("btnLogout");
 const userEmail = document.getElementById("userEmail");
+const insightText = document.getElementById("insightText");
+const insightMeta = document.getElementById("insightMeta");
+const chartState = document.getElementById("chartState");
+const txListEl = document.getElementById("txList");
+const monthlyBudgetInput = document.getElementById("monthlyBudget");
+const budgetSaveBtn = document.getElementById("budgetSaveBtn");
+const budgetResetBtn = document.getElementById("budgetResetBtn");
+const budgetStatus = document.getElementById("budgetStatus");
+const budgetProgressLabel = document.getElementById("budgetProgressLabel");
+const budgetProgressPercent = document.getElementById("budgetProgressPercent");
+const budgetProgressFill = document.getElementById("budgetProgressFill");
+const budgetDailyHint = document.getElementById("budgetDailyHint");
+
+let currentMonthlyBudget = 0;
+let lastMonthlyExpense = 0;
+let budgetAlertLevel = "none";
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getBudgetDocRef(uid) {
+  const monthKey = getCurrentMonthKey();
+  return doc(db, "users", uid, "transactions", `budget_${monthKey}`);
+}
+
+async function ensureUserDoc(user) {
+  if (!user || !user.uid) return;
+
+  try {
+    await setDoc(doc(db, "users", user.uid), {
+      email: user.email || "",
+      lastLoginAt: serverTimestamp(),
+      createdAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Ensure user doc error:", error);
+  }
+}
+
+function getRemainingDaysInMonth() {
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.max(1, endOfMonth - now.getDate() + 1);
+}
+
+function renderBudgetProgress(expenseValue = 0) {
+  if (!budgetStatus || !budgetProgressLabel || !budgetProgressPercent || !budgetProgressFill) return;
+
+  const budget = currentMonthlyBudget;
+  const expense = Number(expenseValue) || 0;
+
+  if (!budget || budget <= 0) {
+    budgetStatus.textContent = "Belum diatur";
+    budgetStatus.className = "text-xs font-semibold px-3 py-1 rounded-full bg-slate-500/30 text-slate-100";
+    budgetProgressLabel.textContent = "Belum ada budget bulan ini.";
+    budgetProgressPercent.textContent = "0%";
+    budgetProgressFill.style.width = "0%";
+    budgetProgressFill.style.background = "linear-gradient(90deg, #22c55e, #10b981)";
+    if (budgetDailyHint) {
+      budgetDailyHint.textContent = "Set budget dulu untuk lihat estimasi jatah harian.";
+    }
+    return;
+  }
+
+  const percent = Math.round((expense / budget) * 100);
+  const cappedPercent = Math.max(0, Math.min(percent, 100));
+  const remaining = budget - expense;
+
+  budgetProgressLabel.textContent = `Terpakai Rp ${expense.toLocaleString("id-ID")} dari budget Rp ${budget.toLocaleString("id-ID")}`;
+  budgetProgressPercent.textContent = `${Math.max(0, percent)}%`;
+  budgetProgressFill.style.width = `${cappedPercent}%`;
+
+  if (percent >= 100) {
+    budgetStatus.textContent = "Overbudget";
+    budgetStatus.className = "text-xs font-semibold px-3 py-1 rounded-full bg-red-500/25 text-red-100";
+    budgetProgressFill.style.background = "linear-gradient(90deg, #f97316, #ef4444)";
+  } else if (percent >= 80) {
+    budgetStatus.textContent = "Waspada";
+    budgetStatus.className = "text-xs font-semibold px-3 py-1 rounded-full bg-amber-500/25 text-amber-100";
+    budgetProgressFill.style.background = "linear-gradient(90deg, #f59e0b, #f97316)";
+  } else {
+    budgetStatus.textContent = "Aman";
+    budgetStatus.className = "text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/25 text-emerald-100";
+    budgetProgressFill.style.background = "linear-gradient(90deg, #22c55e, #10b981)";
+  }
+
+  if (remaining < 0) {
+    budgetProgressLabel.textContent += ` • Lewat Rp ${Math.abs(remaining).toLocaleString("id-ID")}`;
+    if (budgetDailyHint) {
+      budgetDailyHint.textContent = "Budget sudah terlewati. Fokus kurangi pengeluaran sampai akhir bulan.";
+    }
+  } else {
+    budgetProgressLabel.textContent += ` • Sisa Rp ${remaining.toLocaleString("id-ID")}`;
+    if (budgetDailyHint) {
+      const daysLeft = getRemainingDaysInMonth();
+      const safeDailySpend = Math.floor(remaining / daysLeft);
+      budgetDailyHint.textContent = `Estimasi jatah harian: Rp ${safeDailySpend.toLocaleString("id-ID")} untuk ${daysLeft} hari ke depan.`;
+    }
+  }
+
+  if (percent >= 100 && budgetAlertLevel !== "over") {
+    showToast("Budget bulan ini terlampaui! Saatnya rem pengeluaran.", "warning");
+    budgetAlertLevel = "over";
+  } else if (percent >= 80 && budgetAlertLevel === "none") {
+    showToast("Pengeluaran sudah di atas 80% budget bulan ini.", "info");
+    budgetAlertLevel = "warn";
+  } else if (percent < 80) {
+    budgetAlertLevel = "none";
+  }
+}
+
+function startBudgetRealtimeListener(uid) {
+  if (!uid) return;
+
+  if (budgetUnsubscribe) {
+    budgetUnsubscribe();
+    budgetUnsubscribe = null;
+  }
+
+  budgetUnsubscribe = onSnapshot(getBudgetDocRef(uid), (snap) => {
+    const savedBudget = snap.exists() ? (Number(snap.data().amount) || 0) : 0;
+
+    currentMonthlyBudget = savedBudget;
+    budgetAlertLevel = "none";
+
+    if (monthlyBudgetInput) {
+      monthlyBudgetInput.value = savedBudget > 0 ? formatRupiah(savedBudget) : "";
+    }
+
+    renderBudgetProgress(lastMonthlyExpense);
+  }, (error) => {
+    console.error("Load budget error:", error);
+    const code = error && error.code ? ` (${error.code})` : "";
+    showToast(`Gagal sinkron budget bulanan dari cloud${code}.`, "error");
+  });
+}
+
+if (budgetSaveBtn) {
+  budgetSaveBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      showToast("Silakan login dulu untuk menyimpan budget.", "warning");
+      return;
+    }
+
+    const rawValue = monthlyBudgetInput ? monthlyBudgetInput.value.trim() : "";
+    const parsedBudget = parseRupiah(rawValue);
+
+    if (!parsedBudget || parsedBudget <= 0) {
+      showToast("Masukkan budget valid lebih dari 0.", "warning");
+      return;
+    }
+
+    budgetSaveBtn.disabled = true;
+    budgetSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+
+    try {
+      const monthKey = getCurrentMonthKey();
+      await setDoc(getBudgetDocRef(user.uid), {
+        type: "budget_meta",
+        monthKey,
+        amount: parsedBudget,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      currentMonthlyBudget = parsedBudget;
+      budgetAlertLevel = "none";
+      if (monthlyBudgetInput) {
+        monthlyBudgetInput.value = formatRupiah(parsedBudget);
+      }
+      renderBudgetProgress(lastMonthlyExpense);
+      showToast("Budget bulanan berhasil disimpan.", "success");
+    } catch (error) {
+      console.error("Save budget error:", error);
+      const code = error && error.code ? ` (${error.code})` : "";
+      showToast(`Gagal menyimpan budget ke cloud${code}. Periksa Firestore Rules atau koneksi internet.`, "error");
+    } finally {
+      budgetSaveBtn.disabled = false;
+      budgetSaveBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Simpan Budget';
+    }
+  });
+}
+
+if (budgetResetBtn) {
+  budgetResetBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      showToast("Silakan login dulu untuk reset budget.", "warning");
+      return;
+    }
+
+    budgetResetBtn.disabled = true;
+    budgetResetBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Mereset...';
+
+    try {
+      const monthKey = getCurrentMonthKey();
+      await setDoc(getBudgetDocRef(user.uid), {
+        type: "budget_meta",
+        monthKey,
+        amount: 0,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      currentMonthlyBudget = 0;
+      budgetAlertLevel = "none";
+      if (monthlyBudgetInput) {
+        monthlyBudgetInput.value = "";
+      }
+      renderBudgetProgress(lastMonthlyExpense);
+      showToast("Budget bulan ini berhasil direset.", "info");
+    } catch (error) {
+      console.error("Reset budget error:", error);
+      const code = error && error.code ? ` (${error.code})` : "";
+      showToast(`Gagal reset budget di cloud${code}. Periksa Firestore Rules atau koneksi internet.`, "error");
+    } finally {
+      budgetResetBtn.disabled = false;
+      budgetResetBtn.innerHTML = '<i class="fas fa-rotate-left mr-2"></i>Reset';
+    }
+  });
+}
+
+function setChartState(visible, message = "") {
+  if (!chartState) return;
+  chartState.style.display = visible ? "flex" : "none";
+  if (message) {
+    const copy = chartState.querySelector(".chart-state-copy");
+    if (copy) copy.textContent = message;
+  }
+}
+
+function renderHistoryLoading() {
+  if (!txListEl) return;
+  txListEl.innerHTML = `
+    <div class="tx-loading">
+      <div class="tx-loading-item shimmer"></div>
+      <div class="tx-loading-item shimmer"></div>
+      <div class="tx-loading-item shimmer"></div>
+    </div>
+  `;
+}
+
+function renderInsight(items, summary) {
+  if (!insightText || !insightMeta) return;
+
+  const { income, expense, balance } = summary;
+  const expenseRatio = income > 0 ? Math.round((expense / income) * 100) : 0;
+  const statusTone = balance >= 0 ? "aman" : "waspada";
+
+  let sentence = "Belum ada transaksi. Yuk catat pemasukan atau pengeluaran pertama kamu.";
+  if (items.length > 0) {
+    if (income === 0 && expense > 0) {
+      sentence = "Pengeluaran berjalan tanpa pemasukan bulan ini. Prioritaskan pemasukan dulu agar arus kas stabil.";
+    } else if (expenseRatio >= 80) {
+      sentence = `Pengeluaran sudah ${expenseRatio}% dari pemasukan. Kurangi belanja non-prioritas untuk jaga saldo.`;
+    } else if (balance >= 0) {
+      sentence = "Arus kas kamu cukup sehat. Pertahankan ritme ini dan sisihkan sebagian untuk tabungan.";
+    } else {
+      sentence = "Saldo bulan ini negatif. Tekan pengeluaran harian dan fokus ke kebutuhan utama.";
+    }
+  }
+
+  insightText.innerHTML = `<i class="fas fa-sparkles text-amber-300 mr-2"></i>${sentence}`;
+  insightMeta.innerHTML = `
+    <span class="insight-pill"><i class="fas fa-wave-square"></i>${items.length} transaksi</span>
+    <span class="insight-pill"><i class="fas fa-percent"></i>rasio belanja ${Math.max(0, expenseRatio)}%</span>
+    <span class="insight-pill"><i class="fas fa-shield-heart"></i>status ${statusTone}</span>
+    <span class="insight-pill"><i class="fas fa-wallet"></i>saldo Rp ${Math.abs(balance).toLocaleString('id-ID')}</span>
+  `;
+}
 
 function setAuthMode(mode) {
   if (!isAuthPage) return;
@@ -357,10 +632,29 @@ if (amountInput) {
   });
 }
 
+if (monthlyBudgetInput) {
+  monthlyBudgetInput.addEventListener('keyup', function() {
+    let value = this.value;
+    value = value.replace(/[^0-9]/g, '');
+    this.value = formatRupiah(value);
+  });
+
+  monthlyBudgetInput.addEventListener('keypress', function(e) {
+    const char = String.fromCharCode(e.which);
+    if (!/[0-9]/.test(char) && e.key !== 'Enter') {
+      e.preventDefault();
+    }
+    if (e.key === 'Enter' && budgetSaveBtn) {
+      budgetSaveBtn.click();
+    }
+  });
+}
+
 // Auth state listener
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log("User logged in:", user.email);
+    ensureUserDoc(user);
     if (isAuthPage && !isDashboardPage) {
       window.location.replace("./dashboard.html");
       return;
@@ -477,16 +771,33 @@ if (amountInput) {
 }
 
 let unsubscribe = null;
+let budgetUnsubscribe = null;
 let chart = null;
 
 function stopRealtime(){
   if (unsubscribe) unsubscribe();
+  if (budgetUnsubscribe) budgetUnsubscribe();
   unsubscribe = null;
+  budgetUnsubscribe = null;
   // clear UI
   document.getElementById("income").innerText = "Rp 0";
   document.getElementById("expense").innerText = "Rp 0";
   document.getElementById("balance").innerText = "Rp 0";
-  document.getElementById("txList").innerHTML = "";
+  if (txListEl) txListEl.innerHTML = "";
+  setChartState(true, "Menyiapkan grafik bulanan...");
+  if (insightText) {
+    insightText.innerHTML = '<i class="fas fa-sparkles text-amber-300 mr-2"></i>Masuk ke akun untuk melihat insight keuangan kamu.';
+  }
+  if (insightMeta) {
+    insightMeta.innerHTML = "";
+  }
+  currentMonthlyBudget = 0;
+  lastMonthlyExpense = 0;
+  budgetAlertLevel = "none";
+  if (monthlyBudgetInput) {
+    monthlyBudgetInput.value = "";
+  }
+  renderBudgetProgress(0);
   if (chart) {
     chart.destroy();
     chart = null;
@@ -495,6 +806,9 @@ function stopRealtime(){
 
 function startRealtime(uid){
   console.log("Starting realtime listener for user:", uid);
+  renderHistoryLoading();
+  setChartState(true, "Menyiapkan grafik bulanan...");
+  startBudgetRealtimeListener(uid);
   const txColl = collection(db, "users", uid, "transactions");
   const q = query(txColl, orderBy("date", "desc"));
   unsubscribe = onSnapshot(q, (snapshot) => {
@@ -504,11 +818,13 @@ function startRealtime(uid){
       items.push({ id: doc.id, ...doc.data() });
     });
     renderTransactions(items);
-    computeSummary(items);
+    const summary = computeSummary(items);
+    renderInsight(items, summary);
     renderChartMonthly(items);
   }, (error) => {
     console.error("Snapshot error:", error);
     console.error("Error code:", error.code);
+    setChartState(true, "Gagal memuat grafik. Coba muat ulang halaman.");
     if (error.code === 'permission-denied') {
       showToast("Akses ditolak! Silakan atur Firestore Rules di Firebase Console.", "error");
     } else {
@@ -518,15 +834,16 @@ function startRealtime(uid){
 }
 
 function renderTransactions(items) {
-  const ul = document.getElementById("txList");
+  const ul = txListEl;
+  if (!ul) return;
   ul.innerHTML = "";
   
   if (items.length === 0) {
     ul.innerHTML = `
-      <div class="text-center py-8 text-gray-400">
-        <i class="fas fa-inbox text-5xl mb-3"></i>
-        <p class="text-lg">Belum ada transaksi</p>
-        <p class="text-sm">Mulai tambahkan transaksi pertama Anda</p>
+      <div class="tx-empty">
+        <i class="fas fa-receipt"></i>
+        <p class="tx-empty-title">Riwayat transaksi masih kosong</p>
+        <p class="tx-empty-copy">Mulai dari transaksi pertama agar grafik dan insight jadi lebih akurat.</p>
       </div>
     `;
     return;
@@ -603,6 +920,9 @@ function computeSummary(items) {
   document.getElementById("expense").innerText = 'Rp ' + expense.toLocaleString('id-ID');
   const balance = income - expense;
   document.getElementById("balance").innerText = 'Rp ' + balance.toLocaleString('id-ID');
+  lastMonthlyExpense = expense;
+  renderBudgetProgress(expense);
+  return { income, expense, balance };
 }
 
 function renderChartMonthly(items) {
@@ -628,7 +948,17 @@ function renderChartMonthly(items) {
     expenseData.push(exp);
   }
 
-  const ctx = document.getElementById("chartMonthly").getContext("2d");
+  const canvas = document.getElementById("chartMonthly");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const hasData = incomeData.some(v => v > 0) || expenseData.some(v => v > 0);
+
+  if (!hasData) {
+    setChartState(true, "Belum ada data bulanan. Tambah transaksi dulu ya.");
+  } else {
+    setChartState(false);
+  }
+
   if (chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'bar',
@@ -656,6 +986,15 @@ function renderChartMonthly(items) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      animation: {
+        duration: 650,
+        easing: 'easeOutQuart'
+      },
+      normalized: true,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
       plugins: { 
         legend: { 
           position: 'top',
