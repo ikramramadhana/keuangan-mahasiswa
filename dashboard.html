@@ -36,6 +36,10 @@
             <i class="fas fa-user-circle text-amber-300 mr-2 text-sm sm:text-base flex-shrink-0"></i>
             <span id="userEmail" class="text-xs sm:text-sm font-medium truncate"></span>
           </div>
+          <button id="themeToggle" type="button" class="theme-toggle px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm flex-shrink-0">
+            <i id="themeToggleIcon" class="fas fa-moon sm:mr-2"></i>
+            <span id="themeToggleText" class="hidden sm:inline">Aktifkan tema premium</span>
+          </button>
           <button id="btnLogout" class="text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg font-semibold btn-animate logout-btn text-xs sm:text-sm flex-shrink-0">
             <i class="fas fa-sign-out-alt sm:mr-2"></i><span class="hidden sm:inline">Logout</span>
           </button>
@@ -51,7 +55,7 @@
             </div>
           </div>
           <div id="income" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
-          <div class="text-xs sm:text-sm opacity-80">
+          <div id="incomePeriodLabel" class="text-xs sm:text-sm opacity-80">
             <i class="fas fa-chart-line mr-1"></i>Bulan ini
           </div>
         </div>
@@ -64,7 +68,7 @@
             </div>
           </div>
           <div id="expense" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
-          <div class="text-xs sm:text-sm opacity-80">
+          <div id="expensePeriodLabel" class="text-xs sm:text-sm opacity-80">
             <i class="fas fa-shopping-cart mr-1"></i>Bulan ini
           </div>
         </div>
@@ -77,7 +81,7 @@
             </div>
           </div>
           <div id="balance" class="text-2xl sm:text-4xl font-bold mb-1">Rp 0</div>
-          <div class="text-xs sm:text-sm opacity-80">
+          <div id="balancePeriodLabel" class="text-xs sm:text-sm opacity-80">
             <i class="fas fa-coins mr-1"></i>Sisa keuangan
           </div>
         </div>
@@ -106,6 +110,8 @@
             Belum diatur
           </span>
         </div>
+
+        <div id="budgetAlertBanner" class="budget-alert-banner hidden mb-3 sm:mb-4"></div>
 
         <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div class="relative">
@@ -189,13 +195,20 @@
         </div>
 
         <div class="glass-card p-4 sm:p-6 rounded-xl card-hover">
-          <div class="flex items-center mb-4 sm:mb-5">
-            <div class="p-2 bg-blue-300/20 rounded-lg mr-2 sm:mr-3">
-              <i class="fas fa-chart-bar text-blue-200 text-lg sm:text-xl"></i>
+          <div class="flex items-center justify-between gap-3 mb-4 sm:mb-5 flex-wrap">
+            <div class="flex items-center min-w-0">
+              <div class="p-2 bg-blue-300/20 rounded-lg mr-2 sm:mr-3 flex-shrink-0">
+                <i class="fas fa-chart-bar text-blue-200 text-lg sm:text-xl"></i>
+              </div>
+              <div class="min-w-0">
+                <h2 id="chartTitle" class="text-lg sm:text-xl font-bold heading-light">Grafik Bulanan</h2>
+                <p id="chartSubtitle" class="text-xs label-soft">Perbandingan pemasukan dan pengeluaran 6 bulan terakhir</p>
+              </div>
             </div>
-            <div>
-              <h2 class="text-lg sm:text-xl font-bold heading-light">Grafik Bulanan</h2>
-              <p class="text-xs label-soft">Perbandingan pemasukan dan pengeluaran 6 bulan terakhir</p>
+            <div class="analysis-switch inline-flex rounded-full p-1">
+              <button id="analysisDay" data-mode="daily" class="analysis-btn px-3 py-1.5 rounded-full text-xs font-semibold">Harian</button>
+              <button id="analysisWeek" data-mode="weekly" class="analysis-btn px-3 py-1.5 rounded-full text-xs font-semibold">Mingguan</button>
+              <button id="analysisMonth" data-mode="monthly" class="analysis-btn px-3 py-1.5 rounded-full text-xs font-semibold">Bulanan</button>
             </div>
           </div>
           <div class="chart-wrap p-2 sm:p-4 rounded-lg relative overflow-hidden">

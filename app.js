@@ -74,6 +74,64 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+const THEME_STORAGE_KEY = "smart-money-manager-theme";
+const THEME_STANDARD = "standard";
+const THEME_PREMIUM = "premium";
+const themeToggle = document.getElementById("themeToggle");
+const themeToggleIcon = document.getElementById("themeToggleIcon");
+const themeToggleText = document.getElementById("themeToggleText");
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) || THEME_STANDARD;
+  } catch (error) {
+    return THEME_STANDARD;
+  }
+}
+
+function saveTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn("Theme storage unavailable:", error);
+  }
+}
+
+function applyTheme(theme) {
+  const usePremium = theme === THEME_PREMIUM;
+  document.body.classList.toggle("theme-premium", usePremium);
+
+  if (themeMeta) {
+    themeMeta.setAttribute("content", usePremium ? "#050814" : "#0f172a");
+  }
+
+  if (themeToggle) {
+    themeToggle.classList.toggle("theme-toggle-active", usePremium);
+    themeToggle.setAttribute("aria-pressed", usePremium ? "true" : "false");
+  }
+
+  if (themeToggleIcon) {
+    themeToggleIcon.className = usePremium ? "fas fa-sun mr-2" : "fas fa-moon mr-2";
+  }
+
+  if (themeToggleText) {
+    themeToggleText.textContent = usePremium ? "Tema premium aktif" : "Aktifkan tema premium";
+  }
+}
+
+function toggleTheme() {
+  const nextTheme = document.body.classList.contains("theme-premium") ? THEME_STANDARD : THEME_PREMIUM;
+  saveTheme(nextTheme);
+  applyTheme(nextTheme);
+}
+
+applyTheme(getStoredTheme());
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", toggleTheme);
+}
+
 const authSection = document.getElementById("auth-section");
 const dashboard = document.getElementById("dashboard");
 const isAuthPage = Boolean(authSection);
@@ -102,10 +160,34 @@ const budgetProgressLabel = document.getElementById("budgetProgressLabel");
 const budgetProgressPercent = document.getElementById("budgetProgressPercent");
 const budgetProgressFill = document.getElementById("budgetProgressFill");
 const budgetDailyHint = document.getElementById("budgetDailyHint");
+const budgetAlertBanner = document.getElementById("budgetAlertBanner");
+const chartTitle = document.getElementById("chartTitle");
+const chartSubtitle = document.getElementById("chartSubtitle");
+const analysisDayBtn = document.getElementById("analysisDay");
+const analysisWeekBtn = document.getElementById("analysisWeek");
+const analysisMonthBtn = document.getElementById("analysisMonth");
+const incomePeriodLabel = document.getElementById("incomePeriodLabel");
+const expensePeriodLabel = document.getElementById("expensePeriodLabel");
+const balancePeriodLabel = document.getElementById("balancePeriodLabel");
 
 let currentMonthlyBudget = 0;
 let lastMonthlyExpense = 0;
 let budgetAlertLevel = "none";
+let currentAnalysisMode = "monthly";
+let currentTransactions = [];
+
+try {
+  currentAnalysisMode = localStorage.getItem("smart-money-manager-analysis-mode") || "monthly";
+} catch (error) {
+  currentAnalysisMode = "monthly";
+}
+
+if (analysisDayBtn && analysisWeekBtn && analysisMonthBtn) {
+  [analysisDayBtn, analysisWeekBtn, analysisMonthBtn].forEach((button) => {
+    button.addEventListener("click", () => setAnalysisMode(button.dataset.mode || "monthly"));
+  });
+  updateAnalysisSwitch(currentAnalysisMode);
+}
 
 function getCurrentMonthKey() {
   const now = new Date();
@@ -139,6 +221,166 @@ function getRemainingDaysInMonth() {
   return Math.max(1, endOfMonth - now.getDate() + 1);
 }
 
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function endOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+}
+
+function getModeMeta(mode) {
+  if (mode === "daily") {
+    return {
+      title: "Grafik Harian",
+      subtitle: "Distribusi pemasukan dan pengeluaran hari ini per jam",
+      periodLabel: "Hari ini",
+      cardLabel: "Hari ini",
+      emptyMessage: "Belum ada transaksi hari ini. Mulai catat agar analisis harian langsung terbaca."
+    };
+  }
+
+  if (mode === "weekly") {
+    return {
+      title: "Grafik Mingguan",
+      subtitle: "Ringkasan 7 hari terakhir untuk lihat pola belanja mingguan",
+      periodLabel: "7 hari terakhir",
+      cardLabel: "7 hari terakhir",
+      emptyMessage: "Belum ada transaksi dalam 7 hari terakhir. Tambahkan transaksi untuk melihat pola mingguan."
+    };
+  }
+
+  return {
+    title: "Grafik Bulanan",
+    subtitle: "Perbandingan pemasukan dan pengeluaran 6 bulan terakhir",
+    periodLabel: "Bulan ini",
+    cardLabel: "Bulan ini",
+    emptyMessage: "Belum ada data bulanan. Tambah transaksi dulu ya."
+  };
+}
+
+function getRangeForMode(mode) {
+  const now = new Date();
+
+  if (mode === "daily") {
+    return {
+      start: startOfDay(now),
+      end: endOfDay(now)
+    };
+  }
+
+  if (mode === "weekly") {
+    const start = startOfDay(new Date(now));
+    start.setDate(start.getDate() - 6);
+    return {
+      start,
+      end: endOfDay(now)
+    };
+  }
+
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), 1),
+    end: endOfDay(now)
+  };
+}
+
+function getTransactionDate(transaction) {
+  return transaction.date && transaction.date.toDate ? transaction.date.toDate() : new Date();
+}
+
+function isFinancialTransaction(transaction) {
+  return transaction && (transaction.type === "income" || transaction.type === "expense");
+}
+
+function isWithinRange(date, range) {
+  return date >= range.start && date <= range.end;
+}
+
+function computeSummaryForMode(items, mode) {
+  const range = getRangeForMode(mode);
+  let income = 0;
+  let expense = 0;
+
+  items.forEach((tx) => {
+    if (!isFinancialTransaction(tx)) return;
+    const txDate = getTransactionDate(tx);
+    if (!isWithinRange(txDate, range)) return;
+
+    if (tx.type === "income") {
+      income += Number(tx.amount) || 0;
+    } else {
+      expense += Number(tx.amount) || 0;
+    }
+  });
+
+  return {
+    income,
+    expense,
+    balance: income - expense,
+    ...getModeMeta(mode)
+  };
+}
+
+function computeLifetimeBalance(items) {
+  return items.reduce((total, tx) => {
+    if (!isFinancialTransaction(tx)) return total;
+    const amount = Number(tx.amount) || 0;
+    return tx.type === "income" ? total + amount : total - amount;
+  }, 0);
+}
+
+function updateSummaryCards(summary, lifetimeBalance = summary.balance) {
+  const periodLabel = summary.cardLabel || "Bulan ini";
+
+  const incomeCard = document.getElementById("income");
+  const expenseCard = document.getElementById("expense");
+  const balanceCard = document.getElementById("balance");
+
+  if (incomeCard) incomeCard.innerText = "Rp " + summary.income.toLocaleString("id-ID");
+  if (expenseCard) expenseCard.innerText = "Rp " + summary.expense.toLocaleString("id-ID");
+  if (balanceCard) balanceCard.innerText = "Rp " + lifetimeBalance.toLocaleString("id-ID");
+
+  if (incomePeriodLabel) {
+    incomePeriodLabel.innerHTML = `<i class="fas fa-chart-line mr-1"></i>${periodLabel}`;
+  }
+  if (expensePeriodLabel) {
+    expensePeriodLabel.innerHTML = `<i class="fas fa-shopping-cart mr-1"></i>${periodLabel}`;
+  }
+  if (balancePeriodLabel) {
+    balancePeriodLabel.innerHTML = `<i class="fas fa-coins mr-1"></i>Saldo tersimpan`;
+  }
+}
+
+function updateAnalysisSwitch(mode) {
+  const buttons = [analysisDayBtn, analysisWeekBtn, analysisMonthBtn].filter(Boolean);
+  buttons.forEach((button) => {
+    const isActive = button.dataset.mode === mode;
+    button.classList.toggle("analysis-btn-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  if (chartTitle) {
+    chartTitle.textContent = getModeMeta(mode).title;
+  }
+
+  if (chartSubtitle) {
+    chartSubtitle.textContent = getModeMeta(mode).subtitle;
+  }
+}
+
+function setAnalysisMode(mode) {
+  currentAnalysisMode = mode;
+  try {
+    localStorage.setItem("smart-money-manager-analysis-mode", mode);
+  } catch (error) {
+    console.warn("Analysis mode storage unavailable:", error);
+  }
+  updateAnalysisSwitch(mode);
+  if (currentTransactions.length > 0) {
+    renderDashboardState(currentTransactions);
+  }
+}
+
 function renderBudgetProgress(expenseValue = 0) {
   if (!budgetStatus || !budgetProgressLabel || !budgetProgressPercent || !budgetProgressFill) return;
 
@@ -152,6 +394,10 @@ function renderBudgetProgress(expenseValue = 0) {
     budgetProgressPercent.textContent = "0%";
     budgetProgressFill.style.width = "0%";
     budgetProgressFill.style.background = "linear-gradient(90deg, #22c55e, #10b981)";
+    if (budgetAlertBanner) {
+      budgetAlertBanner.className = "budget-alert-banner hidden mb-3 sm:mb-4";
+      budgetAlertBanner.innerHTML = "";
+    }
     if (budgetDailyHint) {
       budgetDailyHint.textContent = "Set budget dulu untuk lihat estimasi jatah harian.";
     }
@@ -180,6 +426,23 @@ function renderBudgetProgress(expenseValue = 0) {
     budgetProgressFill.style.background = "linear-gradient(90deg, #22c55e, #10b981)";
   }
 
+  if (budgetAlertBanner) {
+    budgetAlertBanner.classList.remove("hidden", "is-safe", "is-warning", "is-critical");
+    if (percent >= 100) {
+      budgetAlertBanner.classList.add("is-critical");
+      budgetAlertBanner.innerHTML = '<i class="fas fa-triangle-exclamation mr-2"></i>Budget terlampaui. Hentikan pengeluaran non-prioritas sekarang.';
+    } else if (percent >= 95) {
+      budgetAlertBanner.classList.add("is-critical");
+      budgetAlertBanner.innerHTML = '<i class="fas fa-bolt mr-2"></i>Budget tinggal sangat sedikit. Jaga pengeluaran sampai akhir bulan.';
+    } else if (percent >= 80) {
+      budgetAlertBanner.classList.add("is-warning");
+      budgetAlertBanner.innerHTML = `<i class="fas fa-circle-exclamation mr-2"></i>Budget sudah terpakai ${Math.max(0, percent)}%. Sisa ruang gerak makin tipis.`;
+    } else {
+      budgetAlertBanner.classList.add("hidden");
+      budgetAlertBanner.innerHTML = "";
+    }
+  }
+
   if (remaining < 0) {
     budgetProgressLabel.textContent += ` • Lewat Rp ${Math.abs(remaining).toLocaleString("id-ID")}`;
     if (budgetDailyHint) {
@@ -197,11 +460,14 @@ function renderBudgetProgress(expenseValue = 0) {
   if (percent >= 100 && budgetAlertLevel !== "over") {
     showToast("Budget bulan ini terlampaui! Saatnya rem pengeluaran.", "warning");
     budgetAlertLevel = "over";
-  } else if (percent >= 80 && budgetAlertLevel === "none") {
+  } else if (percent >= 95 && budgetAlertLevel !== "critical") {
+    showToast("Budget hampir habis. Tinggal sedikit ruang untuk pengeluaran berikutnya.", "error");
+    budgetAlertLevel = "critical";
+  } else if (percent >= 80 && budgetAlertLevel !== "warn" && budgetAlertLevel !== "critical" && budgetAlertLevel !== "over") {
     showToast("Pengeluaran sudah di atas 80% budget bulan ini.", "info");
     budgetAlertLevel = "warn";
   } else if (percent < 80) {
-    budgetAlertLevel = "none";
+    budgetAlertLevel = "safe";
   }
 }
 
@@ -217,7 +483,7 @@ function startBudgetRealtimeListener(uid) {
     const savedBudget = snap.exists() ? (Number(snap.data().amount) || 0) : 0;
 
     currentMonthlyBudget = savedBudget;
-    budgetAlertLevel = "none";
+    budgetAlertLevel = "safe";
 
     if (monthlyBudgetInput) {
       monthlyBudgetInput.value = savedBudget > 0 ? formatRupiah(savedBudget) : "";
@@ -315,13 +581,48 @@ if (budgetResetBtn) {
   });
 }
 
-function setChartState(visible, message = "") {
+function setChartState(visible, message = "", stateType = "loading") {
   if (!chartState) return;
   chartState.style.display = visible ? "flex" : "none";
-  if (message) {
-    const copy = chartState.querySelector(".chart-state-copy");
-    if (copy) copy.textContent = message;
+  if (!visible) return;
+
+  if (stateType === "empty") {
+    chartState.innerHTML = `
+      <div class="chart-empty-wrap">
+        <i class="fas fa-chart-simple chart-empty-icon"></i>
+        <p class="chart-empty-title">Belum ada data pada periode ini</p>
+        <p class="chart-state-copy">${message}</p>
+      </div>
+    `;
+    return;
   }
+
+  if (stateType === "error") {
+    chartState.innerHTML = `
+      <div class="chart-empty-wrap">
+        <i class="fas fa-triangle-exclamation chart-empty-icon"></i>
+        <p class="chart-empty-title">Grafik gagal dimuat</p>
+        <p class="chart-state-copy">${message}</p>
+      </div>
+    `;
+    return;
+  }
+
+  chartState.innerHTML = `
+    <div class="skeleton shimmer w-40 h-3 rounded-full mb-3"></div>
+    <div class="skeleton shimmer w-full h-40 rounded-lg"></div>
+    <p class="chart-state-copy">${message || "Menyiapkan grafik..."}</p>
+  `;
+}
+
+function getModeLoadingMessage(mode) {
+  if (mode === "daily") {
+    return "Menyiapkan grafik harian...";
+  }
+  if (mode === "weekly") {
+    return "Menyiapkan grafik mingguan...";
+  }
+  return "Menyiapkan grafik bulanan...";
 }
 
 function renderHistoryLoading() {
@@ -335,28 +636,47 @@ function renderHistoryLoading() {
   `;
 }
 
+function renderDashboardState(items) {
+  currentTransactions = items;
+
+  const financialItems = items.filter(isFinancialTransaction);
+
+  const analysisSummary = computeSummaryForMode(financialItems, currentAnalysisMode);
+  const monthlySummary = computeSummaryForMode(financialItems, "monthly");
+  const lifetimeBalance = computeLifetimeBalance(financialItems);
+
+  // Keep main cards tied to monthly figures so balance stays consistent.
+  updateSummaryCards(monthlySummary, lifetimeBalance);
+  lastMonthlyExpense = monthlySummary.expense;
+  renderBudgetProgress(monthlySummary.expense);
+  renderInsight(financialItems, monthlySummary);
+  renderChartByMode(financialItems, currentAnalysisMode);
+}
+
 function renderInsight(items, summary) {
   if (!insightText || !insightMeta) return;
 
   const { income, expense, balance } = summary;
+  const periodText = summary.periodLabel || "periode ini";
   const expenseRatio = income > 0 ? Math.round((expense / income) * 100) : 0;
   const statusTone = balance >= 0 ? "aman" : "waspada";
 
   let sentence = "Belum ada transaksi. Yuk catat pemasukan atau pengeluaran pertama kamu.";
   if (items.length > 0) {
     if (income === 0 && expense > 0) {
-      sentence = "Pengeluaran berjalan tanpa pemasukan bulan ini. Prioritaskan pemasukan dulu agar arus kas stabil.";
+      sentence = `Pengeluaran berjalan tanpa pemasukan pada ${periodText.toLowerCase()}. Prioritaskan pemasukan dulu agar arus kas stabil.`;
     } else if (expenseRatio >= 80) {
-      sentence = `Pengeluaran sudah ${expenseRatio}% dari pemasukan. Kurangi belanja non-prioritas untuk jaga saldo.`;
+      sentence = `Pengeluaran sudah ${expenseRatio}% dari pemasukan pada ${periodText.toLowerCase()}. Kurangi belanja non-prioritas untuk jaga saldo.`;
     } else if (balance >= 0) {
-      sentence = "Arus kas kamu cukup sehat. Pertahankan ritme ini dan sisihkan sebagian untuk tabungan.";
+      sentence = `Arus kas kamu cukup sehat untuk ${periodText.toLowerCase()}. Pertahankan ritme ini dan sisihkan sebagian untuk tabungan.`;
     } else {
-      sentence = "Saldo bulan ini negatif. Tekan pengeluaran harian dan fokus ke kebutuhan utama.";
+      sentence = `Saldo pada ${periodText.toLowerCase()} negatif. Tekan pengeluaran harian dan fokus ke kebutuhan utama.`;
     }
   }
 
   insightText.innerHTML = `<i class="fas fa-sparkles text-amber-300 mr-2"></i>${sentence}`;
   insightMeta.innerHTML = `
+    <span class="insight-pill"><i class="fas fa-calendar-day"></i>${periodText}</span>
     <span class="insight-pill"><i class="fas fa-wave-square"></i>${items.length} transaksi</span>
     <span class="insight-pill"><i class="fas fa-percent"></i>rasio belanja ${Math.max(0, expenseRatio)}%</span>
     <span class="insight-pill"><i class="fas fa-shield-heart"></i>status ${statusTone}</span>
@@ -784,7 +1104,7 @@ function stopRealtime(){
   document.getElementById("expense").innerText = "Rp 0";
   document.getElementById("balance").innerText = "Rp 0";
   if (txListEl) txListEl.innerHTML = "";
-  setChartState(true, "Menyiapkan grafik bulanan...");
+  setChartState(true, getModeLoadingMessage(currentAnalysisMode), "loading");
   if (insightText) {
     insightText.innerHTML = '<i class="fas fa-sparkles text-amber-300 mr-2"></i>Masuk ke akun untuk melihat insight keuangan kamu.';
   }
@@ -807,7 +1127,8 @@ function stopRealtime(){
 function startRealtime(uid){
   console.log("Starting realtime listener for user:", uid);
   renderHistoryLoading();
-  setChartState(true, "Menyiapkan grafik bulanan...");
+  updateAnalysisSwitch(currentAnalysisMode);
+  setChartState(true, getModeLoadingMessage(currentAnalysisMode), "loading");
   startBudgetRealtimeListener(uid);
   const txColl = collection(db, "users", uid, "transactions");
   const q = query(txColl, orderBy("date", "desc"));
@@ -818,13 +1139,11 @@ function startRealtime(uid){
       items.push({ id: doc.id, ...doc.data() });
     });
     renderTransactions(items);
-    const summary = computeSummary(items);
-    renderInsight(items, summary);
-    renderChartMonthly(items);
+    renderDashboardState(items);
   }, (error) => {
     console.error("Snapshot error:", error);
     console.error("Error code:", error.code);
-    setChartState(true, "Gagal memuat grafik. Coba muat ulang halaman.");
+    setChartState(true, "Gagal memuat grafik. Coba muat ulang halaman.", "error");
     if (error.code === 'permission-denied') {
       showToast("Akses ditolak! Silakan atur Firestore Rules di Firebase Console.", "error");
     } else {
@@ -837,8 +1156,9 @@ function renderTransactions(items) {
   const ul = txListEl;
   if (!ul) return;
   ul.innerHTML = "";
+  const financialItems = items.filter(isFinancialTransaction);
   
-  if (items.length === 0) {
+  if (financialItems.length === 0) {
     ul.innerHTML = `
       <div class="tx-empty">
         <i class="fas fa-receipt"></i>
@@ -849,7 +1169,7 @@ function renderTransactions(items) {
     return;
   }
   
-  items.slice(0, 50).forEach(tx => {
+  financialItems.slice(0, 50).forEach(tx => {
     const li = document.createElement("li");
     const d = tx.date && tx.date.toDate ? tx.date.toDate() : new Date();
     
@@ -925,27 +1245,80 @@ function computeSummary(items) {
   return { income, expense, balance };
 }
 
-function renderChartMonthly(items) {
-  // aggregate per month for last 6 months
+function renderChartByMode(items, mode = currentAnalysisMode) {
   const labels = [];
   const incomeData = [];
   const expenseData = [];
+  const analysisMeta = getModeMeta(mode);
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleString('id-ID', { month: 'short', year: 'numeric' });
-    labels.push(label);
-    const ym = { y: d.getFullYear(), m: d.getMonth() };
-    let inc = 0, exp = 0;
-    items.forEach(tx => {
-      const td = tx.date && tx.date.toDate ? tx.date.toDate() : new Date();
-      if (td.getFullYear() === ym.y && td.getMonth() === ym.m) {
-        if (tx.type === 'income') inc += tx.amount;
-        else exp += tx.amount;
+  const range = getRangeForMode(mode);
+
+  if (mode === "daily") {
+    for (let hour = 0; hour < 24; hour += 1) {
+      labels.push(`${String(hour).padStart(2, "0")}:00`);
+      incomeData.push(0);
+      expenseData.push(0);
+    }
+
+    items.forEach((tx) => {
+      if (!isFinancialTransaction(tx)) return;
+      const txDate = getTransactionDate(tx);
+      if (!isWithinRange(txDate, range)) return;
+
+      const hour = txDate.getHours();
+      if (tx.type === "income") {
+        incomeData[hour] += Number(tx.amount) || 0;
+      } else {
+        expenseData[hour] += Number(tx.amount) || 0;
       }
     });
-    incomeData.push(inc);
-    expenseData.push(exp);
+  } else if (mode === "weekly") {
+    const startDate = new Date(range.start);
+
+    for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+      const currentDay = new Date(startDate);
+      currentDay.setDate(startDate.getDate() + dayIndex);
+      labels.push(currentDay.toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }));
+      incomeData.push(0);
+      expenseData.push(0);
+    }
+
+    items.forEach((tx) => {
+      if (!isFinancialTransaction(tx)) return;
+      const txDate = getTransactionDate(tx);
+      if (!isWithinRange(txDate, range)) return;
+
+      const dayIndex = Math.floor((startOfDay(txDate) - startOfDay(range.start)) / 86400000);
+      if (dayIndex < 0 || dayIndex > 6) return;
+
+      if (tx.type === "income") {
+        incomeData[dayIndex] += Number(tx.amount) || 0;
+      } else {
+        expenseData[dayIndex] += Number(tx.amount) || 0;
+      }
+    });
+  } else {
+    for (let i = 5; i >= 0; i -= 1) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(monthDate.toLocaleString("id-ID", { month: "short", year: "numeric" }));
+      incomeData.push(0);
+      expenseData.push(0);
+    }
+
+    items.forEach((tx) => {
+      if (!isFinancialTransaction(tx)) return;
+      const txDate = getTransactionDate(tx);
+      const monthOffset = (txDate.getFullYear() - now.getFullYear()) * 12 + (txDate.getMonth() - now.getMonth());
+      const bucketIndex = monthOffset + 5;
+
+      if (bucketIndex < 0 || bucketIndex > 5) return;
+
+      if (tx.type === "income") {
+        incomeData[bucketIndex] += Number(tx.amount) || 0;
+      } else {
+        expenseData[bucketIndex] += Number(tx.amount) || 0;
+      }
+    });
   }
 
   const canvas = document.getElementById("chartMonthly");
@@ -954,7 +1327,7 @@ function renderChartMonthly(items) {
   const hasData = incomeData.some(v => v > 0) || expenseData.some(v => v > 0);
 
   if (!hasData) {
-    setChartState(true, "Belum ada data bulanan. Tambah transaksi dulu ya.");
+    setChartState(true, analysisMeta.emptyMessage, "empty");
   } else {
     setChartState(false);
   }
